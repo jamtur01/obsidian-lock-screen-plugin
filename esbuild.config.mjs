@@ -17,56 +17,53 @@ const MANIFEST = "manifest.json";
 
 const postBuild = async () => {
 	await fs.copyFile(path.join(MANIFEST), path.join(OUT_DIR, MANIFEST));
-	await fs.copy(
-		path.join(OUT_DIR),
-		"/Users/ericbiewener/Drive/π Archive/Deep Freeze/Past Jobs/Data/.obsidian/plugins/lock-screen"
-	);
-	console.info("✅ Copied plugin to vault.");
 };
 
-esbuild
-	.build({
-		banner: {
-			js: banner,
-		},
-		entryPoints: ["src/main.ts"],
-		bundle: true,
-		external: [
-			"obsidian",
-			"electron",
-			"@codemirror/autocomplete",
-			"@codemirror/closebrackets",
-			"@codemirror/collab",
-			"@codemirror/commands",
-			"@codemirror/comment",
-			"@codemirror/fold",
-			"@codemirror/gutter",
-			"@codemirror/highlight",
-			"@codemirror/history",
-			"@codemirror/language",
-			"@codemirror/lint",
-			"@codemirror/matchbrackets",
-			"@codemirror/panel",
-			"@codemirror/rangeset",
-			"@codemirror/rectangular-selection",
-			"@codemirror/search",
-			"@codemirror/state",
-			"@codemirror/stream-parser",
-			"@codemirror/text",
-			"@codemirror/tooltip",
-			"@codemirror/view",
-			...builtins,
-		],
-		format: "cjs",
-		watch: isProd ? false : { onRebuild: postBuild },
-		target: "es2016",
-		logLevel: "info",
-		sourcemap: isProd ? false : "inline",
-		treeShaking: true,
-		outdir: OUT_DIR,
-	})
-	.then(postBuild)
-	.catch((e) => {
-		console.error(e);
-		process.exit(1);
-	});
+const buildOptions = {
+	banner: {
+		js: banner,
+	},
+	entryPoints: ["src/main.ts"],
+	bundle: true,
+	external: [
+		"obsidian",
+		"electron",
+		"@codemirror/autocomplete",
+		"@codemirror/closebrackets",
+		"@codemirror/collab",
+		"@codemirror/commands",
+		"@codemirror/comment",
+		"@codemirror/fold",
+		"@codemirror/gutter",
+		"@codemirror/highlight",
+		"@codemirror/history",
+		"@codemirror/language",
+		"@codemirror/lint",
+		"@codemirror/matchbrackets",
+		"@codemirror/panel",
+		"@codemirror/rangeset",
+		"@codemirror/rectangular-selection",
+		"@codemirror/search",
+		"@codemirror/state",
+		"@codemirror/stream-parser",
+		"@codemirror/text",
+		"@codemirror/tooltip",
+		"@codemirror/view",
+		...builtins,
+	],
+	format: "cjs",
+	target: "es2016",
+	logLevel: "info",
+	sourcemap: isProd ? false : "inline",
+	treeShaking: true,
+	outdir: OUT_DIR,
+};
+
+if (isProd) {
+	await esbuild.build(buildOptions);
+	await postBuild();
+} else {
+	const ctx = await esbuild.context(buildOptions);
+	await ctx.watch();
+	await postBuild();
+}

@@ -1,4 +1,4 @@
-import compareVersions from "compare-versions";
+import { compareVersions } from "compare-versions";
 import inquirer from "inquirer";
 import open from "open";
 import "zx/globals";
@@ -27,7 +27,7 @@ const writeManifest = (version: string) => {
 	return fs.writeFile(
 		MANIFEST_FILENAME,
 		JSON.stringify(manifest, null, 2),
-		"utf-8"
+		"utf-8",
 	);
 };
 
@@ -39,7 +39,7 @@ const writeVersions = (version: string) => {
 	return fs.writeFile(
 		VERSIONS_FILENAME,
 		JSON.stringify(versions, null, 2),
-		"utf-8"
+		"utf-8",
 	);
 };
 

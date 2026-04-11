@@ -64,7 +64,9 @@ const showPasswordField = (container: HTMLElement) => {
 	});
 
 	const input = form.createEl("input");
-	input.type = "password";
+	input.type = "text";
+	input.autocomplete = "off";
+	input.spellcheck = false;
 
 	Object.assign(input.style, {
 		fontSize: "5rem",
@@ -76,6 +78,7 @@ const showPasswordField = (container: HTMLElement) => {
 		borderLeft: "none",
 		boxShadow: "none",
 	} as CSSStyleDeclaration);
+	input.style.setProperty("-webkit-text-security", "disc");
 
 	input.addEventListener("keydown", (e) => {
 		if (e.key !== "Escape") return;
@@ -97,7 +100,7 @@ export const showLockScreen = () => {
 	const container = domService.createEl(
 		document.body,
 		"div",
-		"edb--lock-screen--container"
+		"edb--lock-screen--container",
 	);
 
 	Object.assign(container.style, {
