@@ -1,43 +1,75 @@
-# Obsidian Lock Screen Plugin
+# Obsidian Lock Screen
 
-Adds a password-gated privacy screen to Obsidian 1.13 and later.
+A password-gated privacy screen for desktop Obsidian 1.13 and later.
 
-## Features
+## Locking
 
-- Locks when the vault opens or when you run the **Lock screen** command.
-- On desktop, locks after every Obsidian window has lost focus for a configurable delay.
-- On mobile, locks after a configurable period without interaction.
-- Covers the main window and every pop-out window.
-- Stores a unique salt and a PBKDF2-HMAC-SHA-256 hash with 600,000 iterations. The
-  password itself is never saved.
-- Delays authentication after repeated failures, with an escalating lockout persisted across
-  restarts.
+The lock screen appears when:
 
-## Security model
+- Obsidian starts;
+- you have not interacted for the **idle timeout**;
+- every Obsidian window has been unfocused for the **lock delay**; or
+- you run the **Lock screen** command.
 
-This plugin is a UI privacy control, not an encryption boundary. It is intended to stop casual
-access when Obsidian is left open.
+Type the password to unlock; there is no need to press Enter. Repeated failures trigger an
+escalating lockout that survives a restart. The main window holds the password field, and pop-out
+note windows are covered and point you to it.
 
-It cannot protect vault data from:
+Nothing happens until you set a password in **Settings → Lock Screen**.
 
-- direct filesystem access;
-- another Obsidian plugin;
-- Electron developer tools;
-- disabling or modifying this plugin; or
-- a compromised operating-system session.
+Locking on start is worth keeping on. It is the only trigger that catches someone else opening
+Obsidian, because the idle timeout resets on every interaction and so never fires while a person
+is reading.
 
-Use full-disk encryption and the operating system's session lock for sensitive data. Encrypt
-individual vaults or containers when data must remain confidential outside Obsidian.
+## Where your password is kept
+
+In Obsidian's per-device Secret Storage, as a PBKDF2-HMAC-SHA-256 hash with 600,000 iterations
+and a unique salt. Nothing about the lock screen is kept in the vault: `data.json` is cleared once
+on first load and never written again.
+
+So editing or deleting vault files cannot change the password, clear a lockout, or roll
+enforcement back, and the hash never reaches Git, sync, or backups.
+
+Secret Storage is Obsidian's own local store, not an operating-system keychain.
+
+Credentials do not sync. Set a password on each machine — the same one, if you like.
+
+## What it protects against
+
+Someone sitting down at your unattended, already-open Obsidian. That is the whole design goal.
+
+This is a privacy control, not encryption. It cannot protect against:
+
+- **Anyone who can write vault files.** The plugin's own `main.js` lives in the vault, and a
+  modified copy simply does not lock.
+- **Other plugins, developer tools, or filesystem access.** They read your notes directly.
+- **A theme or CSS snippet.** A `transform` or `filter` on an ancestor element can clip the
+  overlay out of view. Input stays blocked, because the locked state lives in the plugin rather
+  than the page, but whatever is on screen can be exposed.
+- **Mobile.** The plugin is desktop-only, so a synced vault is unprotected on iOS and Android.
+- **Guessing without pressing Enter.** Typing is not counted towards the lockout, so it is
+  limited only by the cost of the key derivation.
+
+A settings window is left uncovered and can stay visible while locked. It is not a way in: the
+password and the timeouts cannot be changed while locked.
+
+For anything genuinely confidential, use full-disk encryption and your operating system's session
+lock.
+
+## If you forget the password
+
+There is no recovery code. Open **Settings → Keychain**, delete the secret named
+`obsidian-lock-screen-plugin-state-v1`, and restart Obsidian. Your notes are untouched; only this
+device's password and lockout state are cleared.
 
 ## Upgrading from 1.x
 
-Version 1.x stored the configured password in plaintext. Version 2.0 deletes that field instead
-of loading or retaining it. After upgrading, open **Settings → Lock Screen** and set a new
-password.
+Version 1.x kept the password in plaintext in `data.json`. Version 2.0 clears that file instead of
+reading it, so set a new password in **Settings → Lock Screen** on each device.
 
 ## Development
 
-The build requires Node 24 and npm.
+Requires Node 24.13.0 (see `.node-version`) and npm.
 
 ```sh
 npm ci
@@ -46,7 +78,7 @@ npm run check
 
 Production artifacts are written to `dist/`.
 
-## Maintenance and credits
+## Credits
 
 Eric Biewener created the original plugin. James Turnbull maintains the current version at
 [jamtur01/obsidian-lock-screen-plugin](https://github.com/jamtur01/obsidian-lock-screen-plugin).
