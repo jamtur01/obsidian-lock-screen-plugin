@@ -2,7 +2,7 @@ export const PASSWORD_ITERATIONS = 600_000;
 
 const HASH_BYTES = 32;
 const MAX_PASSWORD_LENGTH = 1_024;
-const MIN_PASSWORD_LENGTH = 8;
+export const MIN_PASSWORD_LENGTH = 8;
 const SALT_BYTES = 16;
 
 export interface PasswordCredential {

@@ -1,10 +1,16 @@
 import { maskPasswordInput } from "#src/security/masked-input";
+import { MIN_PASSWORD_LENGTH } from "#src/security/password";
 
 export type LockScreenViewMode = "cover" | "password" | "unreadable";
 
 export interface LockScreenViewCallbacks {
 	submitPassword: (password: string) => Promise<void>;
+	tryPassword: (password: string) => void;
 }
+
+// Checking as the user types costs a full key derivation per check, so wait for a pause rather
+// than firing on every keystroke, and ignore anything too short to be a valid password.
+const PROBE_DELAY_MS = 350;
 
 const OVERLAY_CLASS = "edb-lock-screen";
 
@@ -69,6 +75,7 @@ const STOP_PROPAGATION_EVENTS: Array<keyof HTMLElementEventMap> = [
 
 export class LockScreenView {
 	private appliedStyleText: string | null = null;
+	private probeTimer: number | null = null;
 	private appliedSurface: string | null = null;
 	private busy = false;
 	private errorMessage = "";
@@ -81,7 +88,7 @@ export class LockScreenView {
 	constructor(
 		private readonly document: Document,
 		mode: LockScreenViewMode,
-		callbacks: LockScreenViewCallbacks,
+		private readonly callbacks: LockScreenViewCallbacks,
 	) {
 		this.overlayEl = this.createOverlay();
 		if (mode === "password") this.createPasswordForm(callbacks.submitPassword);
@@ -107,6 +114,7 @@ export class LockScreenView {
 	}
 
 	hide(): void {
+		this.cancelProbe();
 		this.overlayEl.remove();
 		// Nothing typed or reported during this lock should survive into the next one.
 		this.errorMessage = "";
@@ -147,6 +155,12 @@ export class LockScreenView {
 		this.remainingLockoutMs = remainingMs;
 		this.updateControls();
 		this.updateStatus(remainingMs);
+	}
+
+	private cancelProbe(): void {
+		if (this.probeTimer === null) return;
+		this.document.defaultView?.clearTimeout(this.probeTimer);
+		this.probeTimer = null;
 	}
 
 	private createOverlay(): HTMLDivElement {
@@ -194,6 +208,16 @@ export class LockScreenView {
 		this.appliedStyleText = this.overlayEl.getAttribute("style") ?? "";
 	}
 
+	private scheduleProbe(tryPassword: (password: string) => void, input: HTMLInputElement): void {
+		const view = this.document.defaultView;
+		if (view === null) return;
+		if (this.probeTimer !== null) view.clearTimeout(this.probeTimer);
+		this.probeTimer = view.setTimeout(() => {
+			this.probeTimer = null;
+			if (input.value.length >= MIN_PASSWORD_LENGTH) tryPassword(input.value);
+		}, PROBE_DELAY_MS);
+	}
+
 	private createPasswordForm(submitPassword: (password: string) => Promise<void>): void {
 		const form = this.document.createElement("form");
 		form.className = "edb-lock-screen__panel";
@@ -205,6 +229,9 @@ export class LockScreenView {
 		input.setAttribute("aria-label", "Lock screen password");
 		maskPasswordInput(input);
 		input.addEventListener("keydown", (event) => this.handlePasswordKey(event));
+		input.addEventListener("input", () =>
+			this.scheduleProbe(this.callbacks.tryPassword, input),
+		);
 		form.append(input);
 		this.passwordInput = input;
 

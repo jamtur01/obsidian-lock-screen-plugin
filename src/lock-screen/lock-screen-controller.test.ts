@@ -306,6 +306,54 @@ describe("lock screen controller", () => {
 		expect(overlayIn()).toBeNull();
 	});
 
+	it("unlocks as soon as the right password is typed, without submitting", async () => {
+		controller.start();
+		const input = document.querySelector<HTMLInputElement>(".edb-lock-screen__password");
+		if (input === null) throw new Error("no password field");
+
+		input.value = PASSWORD;
+		input.dispatchEvent(new Event("input", { bubbles: true }));
+		await waitFor(() => overlayIn() === null);
+
+		expect(overlayIn()).toBeNull();
+	});
+
+	it("does not count a half-typed password as a failed attempt", async () => {
+		controller.start();
+		const input = document.querySelector<HTMLInputElement>(".edb-lock-screen__password");
+		if (input === null) throw new Error("no password field");
+
+		// Counting every prefix would hit the lockout before the password could be finished.
+		for (const value of ["correct ", "correct hors", "correct horse ba"]) {
+			input.value = value;
+			input.dispatchEvent(new Event("input", { bubbles: true }));
+			await waitFor(() => true);
+		}
+		await flushDom();
+
+		expect(plugin.settings.failedAttempts).toBe(0);
+		expect(plugin.saves).toHaveLength(0);
+		expect(overlayIn()).not.toBeNull();
+	});
+
+	it("ignores typing while a lockout is in force", async () => {
+		plugin.settings = {
+			...plugin.settings,
+			failedAttempts: 5,
+			lockedUntil: Date.now() + 60_000,
+		};
+		controller.start();
+		const input = document.querySelector<HTMLInputElement>(".edb-lock-screen__password");
+		if (input === null) throw new Error("no password field");
+
+		input.value = PASSWORD;
+		input.dispatchEvent(new Event("input", { bubbles: true }));
+		await flushDom();
+		await flushDom();
+
+		expect(overlayIn()).not.toBeNull();
+	});
+
 	it("stays locked and records a failure for the wrong password", async () => {
 		controller.start();
 

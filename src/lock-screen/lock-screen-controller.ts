@@ -75,6 +75,7 @@ export class LockScreenController {
 	// The window that carries the password field. Every other window gets a plain cover.
 	private readonly primaryDocument = document;
 	private locked = false;
+	private probing = false;
 	// Wall-clock deadlines survive a restart. A parallel monotonic deadline prevents a later
 	// system-clock change from shortening a lockout during the current session.
 	private monotonicLockoutUntil = 0;
@@ -301,6 +302,7 @@ export class LockScreenController {
 	private createView(registeredDocument: Document): LockScreenView {
 		return new LockScreenView(registeredDocument, this.getViewMode(registeredDocument), {
 			submitPassword: async (password) => this.submitPassword(password),
+			tryPassword: (password) => void this.tryPassword(password),
 		});
 	}
 
@@ -316,6 +318,32 @@ export class LockScreenController {
 	 */
 	canLock(): boolean {
 		return this.plugin.credentialUnreadable || this.plugin.settings.credential !== null;
+	}
+
+	/**
+	 * Unlocks as soon as the typed password is right, without waiting for Enter.
+	 *
+	 * A failure here is not recorded: the user is mid-typing, and counting every prefix would
+	 * reach the lockout threshold before a password could be finished. That means someone
+	 * guessing without ever submitting is limited by the cost of the key derivation rather than
+	 * by the lockout, which is the price of not having to press Enter.
+	 */
+	private async tryPassword(password: string): Promise<void> {
+		if (this.probing || this.verifying || !this.locked) return;
+		const credential = this.getCredentialForAttempt();
+		if (credential === null) return;
+		const settingsRevision = this.settingsRevision;
+
+		this.probing = true;
+		try {
+			if (!(await verifyPassword(password, credential))) return;
+			if (!this.isCurrentAttempt(credential, settingsRevision)) return;
+			await this.acceptPassword(credential, settingsRevision);
+		} catch {
+			// Reported on the explicit attempt instead, where the user is waiting for an answer.
+		} finally {
+			this.probing = false;
+		}
 	}
 
 	private async submitPassword(password: string): Promise<void> {
