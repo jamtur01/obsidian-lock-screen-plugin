@@ -19,5 +19,16 @@
 		"eslint/max-params": ["error", 5],
 		"typescript/consistent-type-imports": "error",
 		"typescript/no-floating-promises": "error"
-	}
+	},
+	"overrides": [
+		{
+			"files": ["**/*.test.ts", "test/**"],
+			"rules": {
+				"eslint/max-lines-per-function": "off",
+				"eslint/max-params": ["error", 6],
+				"eslint/no-await-in-loop": "off",
+				"typescript/no-extraneous-class": "off"
+			}
+		}
+	]
 }

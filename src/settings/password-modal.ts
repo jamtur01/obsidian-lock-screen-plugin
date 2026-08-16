@@ -1,5 +1,6 @@
 import { Modal, Setting, type App, type ButtonComponent } from "obsidian";
 
+import { maskPasswordInput } from "#src/security/masked-input";
 import { validateNewPassword } from "#src/security/password";
 
 interface PasswordModalOptions {
@@ -33,22 +34,30 @@ export class PasswordModal extends Modal {
 			attr: { "aria-live": "polite", role: "status" },
 		});
 		let saveButton: ButtonComponent;
-		new Setting(this.contentEl).addButton((button) => {
-			saveButton = button
-				.setButtonText("Save password")
-				.setCta()
-				.onClick(() => this.savePassword(saveButton, status));
-		});
+		new Setting(this.contentEl)
+			.addButton((button) => {
+				button.setButtonText("Cancel").onClick(() => this.close());
+			})
+			.addButton((button) => {
+				saveButton = button
+					.setButtonText("Save password")
+					.setCta()
+					.onClick(() => this.savePassword(saveButton, status));
+			});
+	}
+
+	override onClose(): void {
+		// Cancelling leaves both fields populated for as long as the modal is reachable.
+		this.password = "";
+		this.confirmation = "";
+		this.contentEl.empty();
 	}
 
 	private addPasswordSetting(label: string, onChange: (value: string) => void): void {
 		new Setting(this.contentEl).setName(label).addText((text) => {
 			text.setPlaceholder("Enter at least 8 characters").onChange(onChange);
 			text.inputEl.autocomplete = "new-password";
-			text.inputEl.classList.add("edb-masked-input");
-			text.inputEl.setAttribute("autocapitalize", "none");
-			text.inputEl.spellcheck = false;
-			text.inputEl.type = "text";
+			maskPasswordInput(text.inputEl);
 		});
 	}
 

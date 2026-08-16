@@ -11,8 +11,7 @@ const credential = {
 describe("settings parsing", () => {
 	it("uses defaults for missing data", () => {
 		expect(parseSettings(null)).toEqual({
-			needsSave: true,
-			removedPlaintextPassword: false,
+			credentialStatus: "absent",
 			settings: DEFAULT_SETTINGS,
 		});
 	});
@@ -23,38 +22,61 @@ describe("settings parsing", () => {
 			failedAttempts: 3,
 			idleTimeoutSeconds: 45,
 			lockDelaySeconds: 10,
+			lockOnStartup: false,
 			lockedUntil: 123_456,
 		};
 
 		expect(parseSettings(settings)).toEqual({
-			needsSave: false,
-			removedPlaintextPassword: false,
+			credentialStatus: "valid",
 			settings,
 		});
 	});
 
-	it("discards plaintext passwords rather than retaining a legacy format", () => {
+	it("never carries a legacy plaintext password into the parsed settings", () => {
 		const parsed = parseSettings({ password: "do not persist this" });
 
-		expect(parsed.removedPlaintextPassword).toBe(true);
-		expect(parsed.needsSave).toBe(true);
 		expect(parsed.settings).not.toHaveProperty("password");
 		expect(parsed.settings.credential).toBeNull();
 	});
 
-	it("rejects malformed credentials and clamps unsafe numeric values", () => {
+	it("clamps unsafe numeric values", () => {
 		const parsed = parseSettings({
-			credential: { hash: "plaintext", iterations: 1, salt: "short" },
 			failedAttempts: -4,
-			idleTimeoutSeconds: 1,
+			idleTimeoutSeconds: -1,
 			lockDelaySeconds: Number.POSITIVE_INFINITY,
 			lockedUntil: -20,
 		});
 
 		expect(parsed.settings).toEqual({
 			...DEFAULT_SETTINGS,
-			idleTimeoutSeconds: 5,
+			idleTimeoutSeconds: 0,
 		});
-		expect(parsed.needsSave).toBe(true);
+	});
+
+	it("locks on open by default and honours an explicit choice", () => {
+		expect(parseSettings(null).settings.lockOnStartup).toBe(true);
+		expect(parseSettings({ lockOnStartup: false }).settings.lockOnStartup).toBe(false);
+		expect(parseSettings({ lockOnStartup: "no" }).settings.lockOnStartup).toBe(true);
+	});
+
+	it("keeps a zero idle timeout, which disables idle locking", () => {
+		expect(parseSettings({ idleTimeoutSeconds: 0 }).settings.idleTimeoutSeconds).toBe(0);
+	});
+
+	it.each([
+		["a non-object credential", "plaintext"],
+		["a malformed hash", { ...credential, hash: "plaintext" }],
+		["a malformed salt", { ...credential, salt: "short" }],
+		["too few iterations", { ...credential, iterations: 1 }],
+		["a missing field", { hash: credential.hash, salt: credential.salt }],
+	])("reports %s as unreadable rather than as an absent password", (_label, value) => {
+		const parsed = parseSettings({ credential: value });
+
+		expect(parsed.credentialStatus).toBe("invalid");
+		expect(parsed.settings.credential).toBeNull();
+	});
+
+	it("treats an explicitly null credential as absent", () => {
+		expect(parseSettings({ credential: null }).credentialStatus).toBe("absent");
 	});
 });

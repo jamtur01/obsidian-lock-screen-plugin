@@ -5,13 +5,20 @@ export interface LockScreenSettings {
 	failedAttempts: number;
 	idleTimeoutSeconds: number;
 	lockDelaySeconds: number;
+	lockOnStartup: boolean;
 	lockedUntil: number;
 }
 
+export type CredentialStatus = "absent" | "invalid" | "valid";
+
 export interface ParsedSettings {
-	needsSave: boolean;
-	removedPlaintextPassword: boolean;
+	credentialStatus: CredentialStatus;
 	settings: LockScreenSettings;
+}
+
+interface ParsedCredential {
+	credential: PasswordCredential | null;
+	status: CredentialStatus;
 }
 
 export const DEFAULT_SETTINGS: LockScreenSettings = {
@@ -19,6 +26,7 @@ export const DEFAULT_SETTINGS: LockScreenSettings = {
 	failedAttempts: 0,
 	idleTimeoutSeconds: 30,
 	lockDelaySeconds: 30,
+	lockOnStartup: true,
 	lockedUntil: 0,
 };
 
@@ -42,15 +50,18 @@ const parseIterations = (value: unknown): number | null => {
 	return value >= MIN_ITERATIONS && value <= MAX_ITERATIONS ? value : null;
 };
 
-const parseCredential = (value: unknown): PasswordCredential | null => {
-	if (!isRecord(value)) return null;
+const parseCredential = (value: unknown): ParsedCredential => {
+	if (value === undefined || value === null) return { credential: null, status: "absent" };
+	if (!isRecord(value)) return { credential: null, status: "invalid" };
 
 	const hash = parseHash(value.hash);
 	const iterations = parseIterations(value.iterations);
 	const salt = parseSalt(value.salt);
-	if (hash === null || iterations === null || salt === null) return null;
+	if (hash === null || iterations === null || salt === null) {
+		return { credential: null, status: "invalid" };
+	}
 
-	return { hash, iterations, salt };
+	return { credential: { hash, iterations, salt }, status: "valid" };
 };
 
 const parseInteger = (value: unknown, fallback: number, minimum: number, maximum: number) => {
@@ -60,13 +71,14 @@ const parseInteger = (value: unknown, fallback: number, minimum: number, maximum
 
 export const parseSettings = (data: unknown): ParsedSettings => {
 	const record = isRecord(data) ? data : {};
+	const parsedCredential = parseCredential(record.credential);
 	const settings: LockScreenSettings = {
-		credential: parseCredential(record.credential),
+		credential: parsedCredential.credential,
 		failedAttempts: parseInteger(record.failedAttempts, 0, 0, 1_000),
 		idleTimeoutSeconds: parseInteger(
 			record.idleTimeoutSeconds,
 			DEFAULT_SETTINGS.idleTimeoutSeconds,
-			5,
+			0,
 			MAX_TIMEOUT_SECONDS,
 		),
 		lockDelaySeconds: parseInteger(
@@ -75,13 +87,14 @@ export const parseSettings = (data: unknown): ParsedSettings => {
 			0,
 			MAX_TIMEOUT_SECONDS,
 		),
+		lockOnStartup:
+			typeof record.lockOnStartup === "boolean"
+				? record.lockOnStartup
+				: DEFAULT_SETTINGS.lockOnStartup,
 		lockedUntil: parseInteger(record.lockedUntil, 0, 0, Number.MAX_SAFE_INTEGER),
 	};
-	const removedPlaintextPassword = Object.hasOwn(record, "password");
-
 	return {
-		needsSave: JSON.stringify(data) !== JSON.stringify(settings),
-		removedPlaintextPassword,
+		credentialStatus: parsedCredential.status,
 		settings,
 	};
 };

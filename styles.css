@@ -1,12 +1,20 @@
+/* Cosmetics only. The view pins the overlay's security-critical presentation inline, including
+   a theme-matched background and text colour, and inline declarations outrank these. The values
+   here are a floor for the moment before that runs, so they are literals rather than custom
+   properties: an undefined variable invalidates the whole declaration and would leave the
+   overlay transparent. */
 .edb-lock-screen {
 	align-items: center !important;
-	background: var(--background-primary) !important;
+	background: #1e1e1e !important;
+	color: #dcddde !important;
 	display: flex !important;
 	inset: 0 !important;
 	justify-content: center !important;
+	opacity: 1 !important;
 	padding: 24px !important;
 	pointer-events: auto !important;
 	position: fixed !important;
+	visibility: visible !important;
 	z-index: 2147483647 !important;
 }
 
@@ -26,9 +34,10 @@
 
 .edb-lock-screen__password {
 	-webkit-text-security: disc;
-	background: var(--background-modifier-form-field);
-	border: 1px solid var(--background-modifier-border);
-	border-radius: var(--input-radius);
+	background: var(--background-modifier-form-field, #2a2a2a);
+	border: 1px solid var(--background-modifier-border, #4a4a4a);
+	border-radius: var(--input-radius, 5px);
+	color: var(--text-normal, #dcddde);
 	font-size: 2rem;
 	padding: 12px;
 	text-align: center;
@@ -43,7 +52,7 @@
 
 .edb-lock-screen__status,
 .edb-password-modal__status {
-	color: var(--text-error);
+	color: var(--text-error, #e05252);
 	min-height: 1.5em;
 }
 

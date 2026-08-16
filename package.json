@@ -10,7 +10,8 @@
 	},
 	"type": "module",
 	"imports": {
-		"#src/*": "./src/*.ts"
+		"#src/*": "./src/*.ts",
+		"#test/*": "./test/*.ts"
 	},
 	"scripts": {
 		"build": "npm run typecheck && node esbuild.config.mjs --production",
@@ -25,9 +26,11 @@
 		"version": "node scripts/version-bump.mjs && git add manifest.json versions.json"
 	},
 	"devDependencies": {
+		"@types/jsdom": "30.0.0",
 		"@types/node": "24.13.3",
 		"esbuild": "0.28.2",
 		"husky": "9.1.7",
+		"jsdom": "30.0.1",
 		"lint-staged": "17.3.0",
 		"obsidian": "1.13.1",
 		"oxfmt": "0.63.0",
