@@ -1,0 +1,23 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"categories": {
+		"correctness": "error",
+		"perf": "error",
+		"suspicious": "error"
+	},
+	"env": {
+		"browser": true,
+		"node": true
+	},
+	"options": {
+		"denyWarnings": true
+	},
+	"plugins": ["eslint", "import", "typescript", "unicorn", "vitest"],
+	"rules": {
+		"eslint/complexity": ["error", 8],
+		"eslint/max-lines-per-function": ["error", 100],
+		"eslint/max-params": ["error", 5],
+		"typescript/consistent-type-imports": "error",
+		"typescript/no-floating-promises": "error"
+	}
+}

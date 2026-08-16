@@ -1,4 +1,52 @@
-/* Sets all the text color to red! */
-body {
-    color: red;
+.edb-lock-screen {
+	align-items: center !important;
+	background: var(--background-primary) !important;
+	display: flex !important;
+	inset: 0 !important;
+	justify-content: center !important;
+	padding: 24px !important;
+	pointer-events: auto !important;
+	position: fixed !important;
+	z-index: 2147483647 !important;
+}
+
+.edb-lock-screen__panel {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	max-width: 560px;
+	text-align: center;
+	width: 100%;
+}
+
+.edb-lock-screen__title {
+	font-size: 2rem;
+	margin: 0;
+}
+
+.edb-lock-screen__password {
+	-webkit-text-security: disc;
+	background: var(--background-modifier-form-field);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--input-radius);
+	font-size: 2rem;
+	padding: 12px;
+	text-align: center;
+	width: 100%;
+}
+
+.edb-lock-screen__button {
+	align-self: center;
+	font-size: var(--font-ui-medium);
+	padding: 8px 24px;
+}
+
+.edb-lock-screen__status,
+.edb-password-modal__status {
+	color: var(--text-error);
+	min-height: 1.5em;
+}
+
+.edb-masked-input {
+	-webkit-text-security: disc;
 }

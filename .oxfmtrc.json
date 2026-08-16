@@ -1,0 +1,7 @@
+{
+	"$schema": "./node_modules/oxfmt/configuration_schema.json",
+	"ignorePatterns": ["dist/**", "node_modules/**", "Plugin Security Comparison.pdf"],
+	"printWidth": 100,
+	"sortImports": {},
+	"useTabs": true
+}
