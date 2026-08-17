@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Count interaction in Obsidian windows the lock screen leaves uncovered, such as a settings
+  window, towards the idle timeout. Working in one previously looked like inactivity, so the
+  lock fired mid-edit and the keymap scope then blocked typing in that window. A window already
+  holding focus when the plugin loads is picked up too, which is what happens when the plugin is
+  reloaded from the settings window.
+
 ## 2.0.0 - 2026-08-16
 
 ### Security

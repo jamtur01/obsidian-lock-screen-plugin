@@ -67,6 +67,7 @@ const ACTIVITY_EVENTS: Array<keyof DocumentEventMap> = [
 ];
 
 export class LockScreenController {
+	private readonly activityCleanups = new Map<Document, Array<() => void>>();
 	private blurTimer: number | null = null;
 	private readonly closedDocuments = new WeakSet<Document>();
 	private readonly contexts = new Map<Document, DocumentContext>();
@@ -109,8 +110,22 @@ export class LockScreenController {
 			}),
 		);
 		this.plugin.registerInterval(window.setInterval(() => this.updateLockoutViews(), 1_000));
+		this.followFocusedUncoveredWindow();
 		if (this.shouldLockOnStart()) this.lock();
 		else this.resetIdleTimer();
+	}
+
+	/**
+	 * Loading with an uncovered window already in front — reloading the plugin from the settings
+	 * window does exactly that — leaves no blur to react to, so the focused window has to be
+	 * picked up here or its input never reaches the idle timer.
+	 */
+	private followFocusedUncoveredWindow(): void {
+		const focusedDocument = activeDocument;
+		if (focusedDocument === this.primaryDocument) return;
+		if (focusedDocument.defaultView?.closed !== false) return;
+		if (!focusedDocument.hasFocus()) return;
+		this.followActivity(focusedDocument);
 	}
 
 	/**
@@ -133,6 +148,9 @@ export class LockScreenController {
 		// Deleting the current entry mid-iteration is well defined for Map.
 		for (const registeredDocument of this.contexts.keys()) {
 			this.unregisterDocument(registeredDocument);
+		}
+		for (const followedDocument of this.activityCleanups.keys()) {
+			this.stopFollowingActivity(followedDocument);
 		}
 		this.locked = false;
 	}
@@ -182,6 +200,9 @@ export class LockScreenController {
 			return;
 		}
 
+		// A pop-out can be followed for activity before the workspace reports it, and a full
+		// registration covers the same events.
+		this.stopFollowingActivity(registeredDocument);
 		const observer = new registeredWindow.MutationObserver(() => {
 			if (this.locked) this.contexts.get(registeredDocument)?.view.enforce();
 		});
@@ -466,15 +487,55 @@ export class LockScreenController {
 
 	private finishBlurTransition(): void {
 		this.blurTimer = null;
-		// Only ever reads focus here. Registering whatever window happens to be focused would
-		// pull in settings windows, which then get an overlay and event blocking of their own.
+		// Only ever reads focus here. Covering whatever window happens to be focused would put an
+		// overlay and event blocking on settings windows, which show no notes.
 		const focusedDocument = activeDocument;
 		if (focusedDocument.defaultView?.closed !== false) return;
-		if (focusedDocument.hasFocus()) return;
+		if (focusedDocument.hasFocus()) {
+			this.followActivity(focusedDocument);
+			return;
+		}
 		this.blurTimer = window.setTimeout(
 			() => this.lock(),
 			this.plugin.settings.lockDelaySeconds * 1_000,
 		);
+	}
+
+	/**
+	 * A window Obsidian owns but the lock screen leaves uncovered — a settings window — still
+	 * shows someone using Obsidian. Its input has to feed the idle timer, or the lock fires while
+	 * the user is working in it and takes the keyboard with it.
+	 */
+	private followActivity(focusedDocument: Document): void {
+		this.resetIdleTimer();
+		const focusedWindow = focusedDocument.defaultView;
+		if (
+			focusedWindow === null ||
+			this.contexts.has(focusedDocument) ||
+			this.activityCleanups.has(focusedDocument)
+		) {
+			return;
+		}
+
+		const cleanups: Array<() => void> = [];
+		const bind = (target: EventTarget, eventName: string, handler: EventListener): void => {
+			target.addEventListener(eventName, handler);
+			cleanups.push(() => target.removeEventListener(eventName, handler));
+		};
+		for (const eventName of ACTIVITY_EVENTS) {
+			bind(focusedDocument, eventName, () => this.resetIdleTimer());
+		}
+		bind(focusedWindow, "blur", () => this.startBlurTimer());
+		bind(focusedWindow, "focus", () => this.clearBlurTimer());
+		bind(focusedWindow, "unload", () => this.stopFollowingActivity(focusedDocument));
+		this.activityCleanups.set(focusedDocument, cleanups);
+	}
+
+	private stopFollowingActivity(followedDocument: Document): void {
+		const cleanups = this.activityCleanups.get(followedDocument);
+		if (cleanups === undefined) return;
+		for (const cleanup of cleanups) cleanup();
+		this.activityCleanups.delete(followedDocument);
 	}
 
 	private clearBlurTimer(): void {

@@ -20,6 +20,32 @@ const overlayIn = (target: Document = document): HTMLElement | null =>
 const newPopout = (): JSDOM =>
 	new JSDOM("<!doctype html><html><body></body></html>", { pretendToBeVisual: true });
 
+/**
+ * A window Obsidian owns but the lock screen does not cover, holding focus: what opening
+ * Settings produces.
+ */
+const uncoveredWindow = (): JSDOM => {
+	const uncovered = newPopout();
+	// jsdom only sets `closed` on windows it opened; a real Obsidian window reports false.
+	Object.defineProperty(uncovered.window, "closed", { configurable: true, value: false });
+	Object.defineProperty(uncovered.window.document, "hasFocus", {
+		configurable: true,
+		value: () => true,
+	});
+	Object.defineProperty(globalThis, "activeDocument", {
+		configurable: true,
+		get: () => uncovered.window.document,
+	});
+	return uncovered;
+};
+
+/** Moves focus to that window from a covered one, which blurs the covered window. */
+const focusUncoveredWindow = (): JSDOM => {
+	const uncovered = uncoveredWindow();
+	window.dispatchEvent(new Event("blur"));
+	return uncovered;
+};
+
 /** Starts locked with any pending observer callbacks already drained. */
 const startLocked = async (): Promise<void> => {
 	controller.start();
@@ -559,6 +585,58 @@ describe("lock screen controller", () => {
 		expect(overlayIn(popout.window.document)?.textContent).toContain(
 			"Unlock in the main Obsidian window",
 		);
+	});
+
+	it("counts work in an uncovered Obsidian window as using Obsidian", () => {
+		vi.useFakeTimers({ toFake: ["clearTimeout", "setTimeout"] });
+		plugin.settings = { ...plugin.settings, idleTimeoutSeconds: 30, lockOnStartup: false };
+		controller.start();
+
+		const settingsWindow = focusUncoveredWindow();
+		vi.advanceTimersByTime(20_000);
+		settingsWindow.window.document.dispatchEvent(new settingsWindow.window.Event("keydown"));
+		vi.advanceTimersByTime(20_000);
+
+		expect(overlayIn()).toBeNull();
+	});
+
+	it("follows an uncovered Obsidian window that already holds focus when it starts", () => {
+		// Reloading the plugin from the settings window leaves no blur to react to: the covered
+		// window lost focus before the controller existed.
+		vi.useFakeTimers({ toFake: ["clearTimeout", "setTimeout"] });
+		plugin.settings = { ...plugin.settings, idleTimeoutSeconds: 30, lockOnStartup: false };
+		const settingsWindow = uncoveredWindow();
+		controller.start();
+
+		vi.advanceTimersByTime(20_000);
+		settingsWindow.window.document.dispatchEvent(new settingsWindow.window.Event("keydown"));
+		vi.advanceTimersByTime(20_000);
+
+		expect(overlayIn()).toBeNull();
+	});
+
+	it("locks when an uncovered Obsidian window is left idle", () => {
+		vi.useFakeTimers({ toFake: ["clearTimeout", "setTimeout"] });
+		plugin.settings = { ...plugin.settings, idleTimeoutSeconds: 30, lockOnStartup: false };
+		controller.start();
+
+		focusUncoveredWindow();
+		vi.advanceTimersByTime(31_000);
+
+		expect(overlayIn()).not.toBeNull();
+	});
+
+	it("stops following an uncovered Obsidian window once it closes", () => {
+		vi.useFakeTimers({ toFake: ["clearTimeout", "setTimeout"] });
+		plugin.settings = { ...plugin.settings, idleTimeoutSeconds: 30, lockOnStartup: false };
+		controller.start();
+
+		const settingsWindow = focusUncoveredWindow();
+		settingsWindow.window.dispatchEvent(new settingsWindow.window.Event("unload"));
+		settingsWindow.window.document.dispatchEvent(new settingsWindow.window.Event("keydown"));
+		vi.advanceTimersByTime(31_000);
+
+		expect(overlayIn()).not.toBeNull();
 	});
 
 	it("leaves windows the workspace did not open uncovered", async () => {
