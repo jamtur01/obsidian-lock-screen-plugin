@@ -1,5 +1,6 @@
 import { Notice, Scope, type Plugin } from "obsidian";
 
+import { closeSettingsWindow, raiseWindow } from "#src/lock-screen/host-window";
 import { LockScreenView, type LockScreenViewMode } from "#src/lock-screen/lock-screen-view";
 import {
 	getRemainingLockoutMs,
@@ -169,6 +170,32 @@ export class LockScreenController {
 			this.startEnforcing(registeredDocument, context);
 		}
 		this.updateLockoutViews();
+		this.showLockScreenInFront();
+	}
+
+	/**
+	 * The password field lives in the main window, so an uncovered window in front of it — the
+	 * settings window — would leave no way to authenticate without hunting for the right window.
+	 *
+	 * Raising only happens while Obsidian is the app in front. A lock that fires after you have
+	 * moved to another app must not drag Obsidian over whatever you moved to.
+	 */
+	private showLockScreenInFront(): void {
+		closeSettingsWindow(this.plugin.app);
+		const primaryWindow = this.primaryDocument.defaultView;
+		if (primaryWindow === null || !this.obsidianHasFocus()) return;
+		raiseWindow(primaryWindow);
+	}
+
+	private obsidianHasFocus(): boolean {
+		if (activeDocument.hasFocus()) return true;
+		for (const registeredDocument of this.contexts.keys()) {
+			if (registeredDocument.hasFocus()) return true;
+		}
+		for (const followedDocument of this.activityCleanups.keys()) {
+			if (followedDocument.hasFocus()) return true;
+		}
+		return false;
 	}
 
 	settingsChanged(): void {

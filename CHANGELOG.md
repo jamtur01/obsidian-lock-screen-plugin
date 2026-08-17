@@ -10,6 +10,12 @@
   holding focus when the plugin loads is picked up too, which is what happens when the plugin is
   reloaded from the settings window.
 
+### Changed
+
+- Close the settings window and bring the lock screen to the front when locking, so the password
+  field is not left behind another window. Obsidian is only raised when it is the app in front,
+  so a lock that fires after you switch away does not interrupt what you moved to.
+
 ## 2.0.0 - 2026-08-16
 
 ### Security

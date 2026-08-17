@@ -85,9 +85,9 @@ export default class LockScreenPlugin extends Plugin {
 	}
 
 	/**
-	 * Settings windows are deliberately left uncovered, so one can stay visible and usable above
-	 * the lock screen. Refusing the change itself is what stops it being used to remove the
-	 * password and walk past the lock.
+	 * Locking closes the settings window rather than covering it, but a window reopened while
+	 * locked is still uncovered. Refusing the change itself is what stops one being used to
+	 * remove the password and walk past the lock.
 	 */
 	private assertUnlocked(): void {
 		if (this.controller?.isLocked() !== true) return;

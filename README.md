@@ -50,9 +50,10 @@ This is a privacy control, not encryption. It cannot protect against:
 - **Guessing without pressing Enter.** Typing is not counted towards the lockout, so it is
   limited only by the cost of the key derivation.
 
-A settings window is left uncovered and can stay visible while locked. It is not a way in: the
-password and the timeouts cannot be changed while locked. Working in one counts as using Obsidian,
-so the idle timeout does not fire while you are typing there.
+Working in a settings window counts as using Obsidian, so the idle timeout does not fire while you
+are typing there. Locking closes that window and brings the lock screen to the front, but a
+settings window reopened while locked is not covered. It is not a way in: the password and the
+timeouts cannot be changed while locked.
 
 For anything genuinely confidential, use full-disk encryption and your operating system's session
 lock.

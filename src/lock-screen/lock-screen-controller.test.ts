@@ -615,6 +615,43 @@ describe("lock screen controller", () => {
 		expect(overlayIn()).toBeNull();
 	});
 
+	it("closes the settings window and raises the locked window", async () => {
+		const close = vi.fn<() => void>();
+		Object.assign(plugin.app, { setting: { close } });
+		const focus = vi.spyOn(window, "focus").mockImplementation(() => {});
+		controller.start();
+		await unlockWith(PASSWORD);
+		focusUncoveredWindow();
+		// The lock at startup already raised the window once.
+		close.mockClear();
+		focus.mockClear();
+
+		controller.lock();
+
+		// Otherwise the settings window stays in front of the only password field there is.
+		expect(close).toHaveBeenCalledTimes(1);
+		expect(focus).toHaveBeenCalled();
+	});
+
+	it("does not pull Obsidian in front of the app you moved to", async () => {
+		const close = vi.fn<() => void>();
+		Object.assign(plugin.app, { setting: { close } });
+		const focus = vi.spyOn(window, "focus").mockImplementation(() => {});
+		controller.start();
+		await unlockWith(PASSWORD);
+		// Every Obsidian window has lost focus: the lock is happening behind another app.
+		const background = uncoveredWindow();
+		Object.defineProperty(background.window.document, "hasFocus", {
+			configurable: true,
+			value: () => false,
+		});
+		focus.mockClear();
+
+		controller.lock();
+
+		expect(focus).not.toHaveBeenCalled();
+	});
+
 	it("locks when an uncovered Obsidian window is left idle", () => {
 		vi.useFakeTimers({ toFake: ["clearTimeout", "setTimeout"] });
 		plugin.settings = { ...plugin.settings, idleTimeoutSeconds: 30, lockOnStartup: false };
